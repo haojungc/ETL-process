@@ -1,9 +1,8 @@
 CC := gcc
-CFLAGS := -Wall -O3
-LDFLAGS := -lpthread
+CFLAGS := -Wall -pthread -O3
 
 all:
-	$(CC) $(CFLAGS) -o generator csv_generator.c $(LDFLAGS)
+	$(CC) $(CFLAGS) -o generator csv_generator.c
 
 .PHONY: clean
 clean:
