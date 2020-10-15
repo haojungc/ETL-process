@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
         printf("Error: unable to open %s\n", input_filename);
         exit(EXIT_FAILURE);
     }
-    fprintf(fp_out, "[\n");
+    fprintf(fp_out, "[");
 
     int32_t n[INT_PER_LINE];
     uint64_t total_lines = 0;
@@ -50,16 +50,12 @@ int main(int argc, char *argv[]) {
                   &n[9], &n[10], &n[11], &n[12], &n[13], &n[14], &n[15], &n[16],
                   &n[17], &n[18], &n[19]) == INT_PER_LINE) {
         total_lines++;
-        if (total_lines == 1)
-            fprintf(fp_out, "\t{\n");
-        else
-            fprintf(fp_out, ",\n\t{\n");
+
+        fprintf(fp_out, "%s", total_lines == 1 ? "\n\t{\n" : ",\n\t{\n");
 
         for (uint8_t i = 0; i < INT_PER_LINE; i++) {
-            if (i == INT_PER_LINE - 1)
-                fprintf(fp_out, "\t\t\"col_%d\":%d\n", i + 1, n[i]);
-            else
-                fprintf(fp_out, "\t\t\"col_%d\":%d,\n", i + 1, n[i]);
+            fprintf(fp_out, "\t\t\"col_%d\":%d%s\n", i + 1, n[i],
+                    i == INT_PER_LINE - 1 ? "" : ",");
         }
         fprintf(fp_out, "\t}");
     }
@@ -71,6 +67,7 @@ int main(int argc, char *argv[]) {
 
     end = clock();
 
+    printf("Converted %lu lines of data.\n", total_lines);
     printf("Elapsed Time: %.2f secs\n", (double)(end - start) / CLOCKS_PER_SEC);
 
     return 0;
