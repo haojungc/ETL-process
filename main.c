@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <sys/resource.h>
 
-#define BUF_SIZE (13 * 20)
+#define BUF_SIZE (25 * 20)
 #define INT_PER_LINE 20
 
 static FILE *fp_in, *fp_out;
@@ -71,6 +71,7 @@ int main(int argc, char *argv[]) {
 
     int32_t n[INT_PER_LINE];
     uint64_t total_lines = 0;
+    char buf[BUF_SIZE];
     /* TODO:
      * Analyze the efficiency for both fscanf and fgets */
     while (fscanf(fp_in,
@@ -80,12 +81,34 @@ int main(int argc, char *argv[]) {
                   &n[17], &n[18], &n[19]) == INT_PER_LINE) {
         total_lines++;
 
-        fprintf(fp_out, "%s", total_lines == 1 ? "\n\t{\n" : ",\n\t{\n");
-
-        for (uint8_t i = 1; i <= INT_PER_LINE; i++) {
-            fprintf(fp_out, "\t\t\"col_%d\":%d%s", i, n[i - 1],
-                    i == INT_PER_LINE ? "\n\t}" : ",\n");
-        }
+        snprintf(buf, BUF_SIZE,
+                 "%s\n"
+                 "\t{\n"
+                 "\t\t\"col_1\":%d,\n"
+                 "\t\t\"col_2\":%d,\n"
+                 "\t\t\"col_3\":%d,\n"
+                 "\t\t\"col_4\":%d,\n"
+                 "\t\t\"col_5\":%d,\n"
+                 "\t\t\"col_6\":%d,\n"
+                 "\t\t\"col_7\":%d,\n"
+                 "\t\t\"col_8\":%d,\n"
+                 "\t\t\"col_9\":%d,\n"
+                 "\t\t\"col_10\":%d,\n"
+                 "\t\t\"col_11\":%d,\n"
+                 "\t\t\"col_12\":%d,\n"
+                 "\t\t\"col_13\":%d,\n"
+                 "\t\t\"col_14\":%d,\n"
+                 "\t\t\"col_15\":%d,\n"
+                 "\t\t\"col_16\":%d,\n"
+                 "\t\t\"col_17\":%d,\n"
+                 "\t\t\"col_18\":%d,\n"
+                 "\t\t\"col_19\":%d,\n"
+                 "\t\t\"col_20\":%d\n"
+                 "\t}",
+                 total_lines == 1 ? "" : ",", n[0], n[1], n[2], n[3], n[4],
+                 n[5], n[6], n[7], n[8], n[9], n[10], n[11], n[12], n[13],
+                 n[14], n[15], n[16], n[17], n[18], n[19]);
+        fprintf(fp_out, "%s", buf);
     }
     fprintf(fp_out, "\n]");
 
