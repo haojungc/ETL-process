@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #define INT_PER_LINE 20
 /* 13: max length of an integer including '|'
@@ -34,15 +35,24 @@ int main(int argc, char *argv[]) {
     default:
         puts("Error: Too many arguments");
         printf("Usage: %s [threads] [total-lines-of-data]\n", argv[0]);
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     char filename[] = "input.csv";
-    fp = fopen(filename, "w");
 
-    if (!fp) {
+    /* Asks for permission to overwrite the existing file */
+    if (access(filename, F_OK) == 0) {
+        printf("Warning: %s already exists\n", filename);
+        puts("Continue? (y: overwrite, n: abort)");
+        char c;
+        scanf("%c", &c);
+        if ((c | ' ') != 'y')
+            exit(EXIT_FAILURE);
+    }
+
+    if (!(fp = fopen(filename, "w"))) {
         printf("Error: Cannot open %s\n", filename);
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     printf("Writing %lu lines of data to %s using %d thread(s) ...\n",
@@ -62,7 +72,7 @@ int main(int argc, char *argv[]) {
             if (stat) {
                 printf("ERROR: return code from pthread_create() is %d\n",
                        stat);
-                exit(-1);
+                exit(EXIT_FAILURE);
             }
         }
         for (uint32_t i = 0; i < total_threads; i++)
@@ -119,7 +129,7 @@ static uint64_t count_line(const char *filename) {
     FILE *fp = fopen(filename, "r");
     if (!fp) {
         printf("Error: Cannot open %s\n", filename);
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     char *scan_stat;
@@ -134,7 +144,7 @@ static uint64_t count_line(const char *filename) {
         }
         if (vertical_count != INT_PER_LINE - 1) {
             printf("Error: Wrong format at line %lu\n", count);
-            exit(-1);
+            exit(EXIT_FAILURE);
         }
     }
 
