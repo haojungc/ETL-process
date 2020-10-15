@@ -11,8 +11,8 @@ static FILE *fp_in, *fp_out;
 static uint32_t total_threads = 1;
 
 int main(int argc, char *argv[]) {
+    /* Gets the maximum number of threads */
     struct rlimit rlim;
-
     if (getrlimit(RLIMIT_NPROC, &rlim) == -1) {
         puts("Error: unable to get RLIMIT_NPROC");
         exit(EXIT_FAILURE);
@@ -24,13 +24,16 @@ int main(int argc, char *argv[]) {
 
     start = clock();
 
+    /* Too many arguments */
     if (argc > 2) {
         puts("Error: too many arguments");
         printf(
             "Usage: %s [--thread=<number-of-threads>] (valid range: 1 ~ %lu)\n",
             argv[0], rlim.rlim_max);
         exit(EXIT_FAILURE);
-    } else if (argc == 2) {
+    }
+    /* Sets the number of threads */
+    if (argc == 2) {
         /* Invalid format */
         if (sscanf(argv[1], "--thread=%u", &total_threads) != 1) {
             puts("Error: invalid format");
@@ -53,13 +56,13 @@ int main(int argc, char *argv[]) {
 
     pthread_t *t = malloc(total_threads * sizeof(pthread_t));
 
-    /* Open input file */
+    /* Opens the input file */
     if (!(fp_in = fopen(input_filename, "r"))) {
         printf("Error: unable to open %s\n", input_filename);
         exit(EXIT_FAILURE);
     }
 
-    /* Open output file */
+    /* Opens the output file */
     if (!(fp_out = fopen(output_filename, "w"))) {
         printf("Error: unable to open %s\n", input_filename);
         exit(EXIT_FAILURE);
