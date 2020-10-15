@@ -10,8 +10,11 @@ static FILE *fp_in, *fp_out;
 static int32_t total_threads = 1;
 
 int main(int argc, char *argv[]) {
+    clock_t start, end;
     const char input_filename[] = "input.csv";
     const char output_filename[] = "output.json";
+
+    start = clock();
 
     if (argc > 2) {
         puts("Error: too many arguments");
@@ -19,6 +22,8 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     } else if (argc == 2)
         total_threads = atoi(argv[1]);
+
+    printf("Converting CSV to JSON with %d thread(s) ...\n", total_threads);
 
     pthread_t *t = malloc(total_threads * sizeof(pthread_t));
 
@@ -63,6 +68,10 @@ int main(int argc, char *argv[]) {
     free(t);
     fclose(fp_in);
     fclose(fp_out);
+
+    end = clock();
+
+    printf("Elapsed Time: %.2f secs\n", (double)(end - start) / CLOCKS_PER_SEC);
 
     return 0;
 }
