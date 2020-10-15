@@ -2,14 +2,22 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/resource.h>
 
 #define BUF_SIZE (13 * 20)
 #define INT_PER_LINE 20
 
 static FILE *fp_in, *fp_out;
-static int32_t total_threads = 1;
+static uint32_t total_threads = 1;
 
 int main(int argc, char *argv[]) {
+    struct rlimit rlim;
+
+    if (getrlimit(RLIMIT_NPROC, &rlim) == -1) {
+        puts("Error: unable to get RLIMIT_NPROC");
+        exit(EXIT_FAILURE);
+    }
+
     clock_t start, end;
     const char input_filename[] = "input.csv";
     const char output_filename[] = "output.json";
@@ -18,12 +26,30 @@ int main(int argc, char *argv[]) {
 
     if (argc > 2) {
         puts("Error: too many arguments");
-        printf("Usage: %s [number-of-threads]\n", argv[0]);
+        printf(
+            "Usage: %s [--thread=<number-of-threads>] (valid range: 1 ~ %lu)\n",
+            argv[0], rlim.rlim_max);
         exit(EXIT_FAILURE);
-    } else if (argc == 2)
-        total_threads = atoi(argv[1]);
+    } else if (argc == 2) {
+        /* Invalid format */
+        if (sscanf(argv[1], "--thread=%u", &total_threads) != 1) {
+            puts("Error: invalid format");
+            printf("Usage: %s [--thread=<number-of-threads>] "
+                   "(valid range: 1 ~ %lu)\n",
+                   argv[0], rlim.rlim_max);
+            exit(EXIT_FAILURE);
+        }
+        /* Invalid value */
+        if (!total_threads || total_threads > rlim.rlim_max) {
+            puts("Error: invalid value for --thread");
+            printf("Usage: %s [--thread=<number-of-threads>] "
+                   "(valid range: 1 ~ %lu)\n",
+                   argv[0], rlim.rlim_max);
+            exit(EXIT_FAILURE);
+        }
+    }
 
-    printf("Converting CSV to JSON with %d thread(s) ...\n", total_threads);
+    printf("Converting CSV to JSON with %u thread(s) ...\n", total_threads);
 
     pthread_t *t = malloc(total_threads * sizeof(pthread_t));
 
