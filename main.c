@@ -53,11 +53,10 @@ int main(int argc, char *argv[]) {
 
         fprintf(fp_out, "%s", total_lines == 1 ? "\n\t{\n" : ",\n\t{\n");
 
-        for (uint8_t i = 0; i < INT_PER_LINE; i++) {
-            fprintf(fp_out, "\t\t\"col_%d\":%d%s\n", i + 1, n[i],
-                    i == INT_PER_LINE - 1 ? "" : ",");
+        for (uint8_t i = 1; i <= INT_PER_LINE; i++) {
+            fprintf(fp_out, "\t\t\"col_%d\":%d%s", i, n[i - 1],
+                    i == INT_PER_LINE ? "\n\t}" : ",\n");
         }
-        fprintf(fp_out, "\t}");
     }
     fprintf(fp_out, "\n]");
 
