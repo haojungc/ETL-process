@@ -91,6 +91,20 @@ static void convert_csv_to_json(const char *f_out, const char *f_in,
 
     pthread_t *t = malloc(total_threads * sizeof(pthread_t));
     uint64_t total_lines = 0;
+    uint64_t offset = 0;
+    /* Reads from input file */
+    while (fscanf(fp_in,
+                  "%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d",
+                  &n[offset], &n[offset + 1], &n[offset + 2], &n[offset + 3],
+                  &n[offset + 4], &n[offset + 5], &n[offset + 6],
+                  &n[offset + 7], &n[offset + 8], &n[offset + 9],
+                  &n[offset + 10], &n[offset + 11], &n[offset + 12],
+                  &n[offset + 13], &n[offset + 14], &n[offset + 15],
+                  &n[offset + 16], &n[offset + 17], &n[offset + 18],
+                  &n[offset + 19]) == INT_PER_LINE) {
+        total_lines++;
+        offset += 20;
+    }
     const char format[] = "%s\n"
                           "\t{\n"
                           "\t\t\"col_1\":%d,\n"
@@ -114,26 +128,18 @@ static void convert_csv_to_json(const char *f_out, const char *f_in,
                           "\t\t\"col_19\":%d,\n"
                           "\t\t\"col_20\":%d\n"
                           "\t}";
-    uint64_t offset = 0;
-    while (fscanf(fp_in,
-                  "%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d",
-                  &n[offset], &n[offset + 1], &n[offset + 2], &n[offset + 3],
-                  &n[offset + 4], &n[offset + 5], &n[offset + 6],
-                  &n[offset + 7], &n[offset + 8], &n[offset + 9],
-                  &n[offset + 10], &n[offset + 11], &n[offset + 12],
-                  &n[offset + 13], &n[offset + 14], &n[offset + 15],
-                  &n[offset + 16], &n[offset + 17], &n[offset + 18],
-                  &n[offset + 19]) == INT_PER_LINE) {
-        total_lines++;
-
-        fprintf(fp_out, format, total_lines == 1 ? "" : ",", n[offset],
-                n[offset + 1], n[offset + 2], n[offset + 3], n[offset + 4],
-                n[offset + 5], n[offset + 6], n[offset + 7], n[offset + 8],
-                n[offset + 9], n[offset + 10], n[offset + 11], n[offset + 12],
-                n[offset + 13], n[offset + 14], n[offset + 15], n[offset + 16],
-                n[offset + 17], n[offset + 18], n[offset + 19]);
+    /* Writes to output file */
+    offset = 0;
+    for (uint64_t i = 0; i < total_lines; i++) {
+        fprintf(fp_out, format, i == 0 ? "" : ",", n[offset], n[offset + 1],
+                n[offset + 2], n[offset + 3], n[offset + 4], n[offset + 5],
+                n[offset + 6], n[offset + 7], n[offset + 8], n[offset + 9],
+                n[offset + 10], n[offset + 11], n[offset + 12], n[offset + 13],
+                n[offset + 14], n[offset + 15], n[offset + 16], n[offset + 17],
+                n[offset + 18], n[offset + 19]);
         offset += 20;
     }
+
     fprintf(fp_out, "\n]");
 
     free(t);
