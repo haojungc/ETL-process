@@ -7,8 +7,10 @@
 #define BUF_SIZE (25 * 20)
 #define INT_PER_LINE 20
 
+static void convert_csv_to_json(const char *f_out, const char *f_in,
+                                const uint32_t total_threads);
+
 static FILE *fp_in, *fp_out;
-static uint32_t total_threads = 1;
 
 int main(int argc, char *argv[]) {
     /* Gets the maximum number of threads */
@@ -21,6 +23,7 @@ int main(int argc, char *argv[]) {
     clock_t start, end;
     const char input_filename[] = "input.csv";
     const char output_filename[] = "output.json";
+    static uint32_t total_threads = 1;
 
     start = clock();
 
@@ -52,23 +55,33 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    convert_csv_to_json(output_filename, input_filename, total_threads);
+
+    end = clock();
+
+    printf("Elapsed Time: %.2f secs\n", (double)(end - start) / CLOCKS_PER_SEC);
+
+    return 0;
+}
+
+static void convert_csv_to_json(const char *f_out, const char *f_in,
+                                const uint32_t total_threads) {
     printf("Converting CSV to JSON with %u thread(s) ...\n", total_threads);
 
-    pthread_t *t = malloc(total_threads * sizeof(pthread_t));
-
     /* Opens the input file */
-    if (!(fp_in = fopen(input_filename, "r"))) {
-        printf("Error: unable to open %s\n", input_filename);
+    if (!(fp_in = fopen(f_in, "r"))) {
+        printf("Error: unable to open %s\n", f_in);
         exit(EXIT_FAILURE);
     }
 
     /* Opens the output file */
-    if (!(fp_out = fopen(output_filename, "w"))) {
-        printf("Error: unable to open %s\n", input_filename);
+    if (!(fp_out = fopen(f_out, "w"))) {
+        printf("Error: unable to open %s\n", f_out);
         exit(EXIT_FAILURE);
     }
     fprintf(fp_out, "[");
 
+    pthread_t *t = malloc(total_threads * sizeof(pthread_t));
     int32_t n[INT_PER_LINE];
     uint64_t total_lines = 0;
     const char format[] = "%s\n"
@@ -110,11 +123,5 @@ int main(int argc, char *argv[]) {
     free(t);
     fclose(fp_in);
     fclose(fp_out);
-
-    end = clock();
-
     printf("Converted %lu lines of data.\n", total_lines);
-    printf("Elapsed Time: %.2f secs\n", (double)(end - start) / CLOCKS_PER_SEC);
-
-    return 0;
 }
