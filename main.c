@@ -3,14 +3,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
-#define BUF_SIZE (25 * 20)
+#define BUF_SIZE 200000000
 #define INT_PER_LINE 20
 
 static void convert_csv_to_json(const char *f_out, const char *f_in,
                                 const uint32_t total_threads);
 
 static FILE *fp_in, *fp_out;
+int32_t n[BUF_SIZE];
 
 int main(int argc, char *argv[]) {
     /* Gets the maximum number of threads */
@@ -66,23 +69,27 @@ int main(int argc, char *argv[]) {
 
 static void convert_csv_to_json(const char *f_out, const char *f_in,
                                 const uint32_t total_threads) {
-    printf("Converting CSV to JSON with %u thread(s) ...\n", total_threads);
-
     /* Opens the input file */
     if (!(fp_in = fopen(f_in, "r"))) {
         printf("Error: unable to open %s\n", f_in);
         exit(EXIT_FAILURE);
     }
 
+    /* Checks the size of input file */
+    struct stat st;
+    fstat(fileno(fp_in), &st);
+    off_t filesize = st.st_size;
+    printf("Size of %s: %.2f MB\n", f_in, (double)filesize / 1e6);
+
     /* Opens the output file */
     if (!(fp_out = fopen(f_out, "w"))) {
         printf("Error: unable to open %s\n", f_out);
         exit(EXIT_FAILURE);
     }
+    printf("Converting CSV to JSON with %u thread(s) ...\n", total_threads);
     fprintf(fp_out, "[");
 
     pthread_t *t = malloc(total_threads * sizeof(pthread_t));
-    int32_t n[INT_PER_LINE];
     uint64_t total_lines = 0;
     const char format[] = "%s\n"
                           "\t{\n"
@@ -107,16 +114,25 @@ static void convert_csv_to_json(const char *f_out, const char *f_in,
                           "\t\t\"col_19\":%d,\n"
                           "\t\t\"col_20\":%d\n"
                           "\t}";
+    uint64_t offset = 0;
     while (fscanf(fp_in,
                   "%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d",
-                  &n[0], &n[1], &n[2], &n[3], &n[4], &n[5], &n[6], &n[7], &n[8],
-                  &n[9], &n[10], &n[11], &n[12], &n[13], &n[14], &n[15], &n[16],
-                  &n[17], &n[18], &n[19]) == INT_PER_LINE) {
+                  &n[offset], &n[offset + 1], &n[offset + 2], &n[offset + 3],
+                  &n[offset + 4], &n[offset + 5], &n[offset + 6],
+                  &n[offset + 7], &n[offset + 8], &n[offset + 9],
+                  &n[offset + 10], &n[offset + 11], &n[offset + 12],
+                  &n[offset + 13], &n[offset + 14], &n[offset + 15],
+                  &n[offset + 16], &n[offset + 17], &n[offset + 18],
+                  &n[offset + 19]) == INT_PER_LINE) {
         total_lines++;
 
-        fprintf(fp_out, format, total_lines == 1 ? "" : ",", n[0], n[1], n[2],
-                n[3], n[4], n[5], n[6], n[7], n[8], n[9], n[10], n[11], n[12],
-                n[13], n[14], n[15], n[16], n[17], n[18], n[19]);
+        fprintf(fp_out, format, total_lines == 1 ? "" : ",", n[offset],
+                n[offset + 1], n[offset + 2], n[offset + 3], n[offset + 4],
+                n[offset + 5], n[offset + 6], n[offset + 7], n[offset + 8],
+                n[offset + 9], n[offset + 10], n[offset + 11], n[offset + 12],
+                n[offset + 13], n[offset + 14], n[offset + 15], n[offset + 16],
+                n[offset + 17], n[offset + 18], n[offset + 19]);
+        offset += 20;
     }
     fprintf(fp_out, "\n]");
 
