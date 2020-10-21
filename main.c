@@ -102,11 +102,16 @@ static void convert_csv_to_json(const char *f_out, const char *f_in,
         printf("Error: unable to open %s\n", f_out);
         exit(EXIT_FAILURE);
     }
+
+    clock_t start, end;
     printf("Converting CSV to JSON with %u thread(s) ...\n", total_threads);
 
+    /* Reads from input file */
+    printf("  Reading from %s ...\n", f_in);
+
+    start = clock();
     uint64_t total_lines = 0;
     uint32_t offset = 0;
-    /* Reads from input file */
     while (fscanf(fp_in,
                   "%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d",
                   &n[offset], &n[offset + 1], &n[offset + 2], &n[offset + 3],
@@ -120,8 +125,13 @@ static void convert_csv_to_json(const char *f_out, const char *f_in,
         offset += INT_PER_LINE;
     }
     fclose(fp_in);
+    end = clock();
+    printf("  Execution Time: %.2f secs\n",
+           (double)(end - start) / CLOCKS_PER_SEC);
 
     /* Writes to output file */
+    printf("  Writing data to %s ...\n", f_out);
+    start = clock();
     fprintf(fp_out, "[");
     if (total_threads == 1) {
         write_data(total_lines);
@@ -129,8 +139,10 @@ static void convert_csv_to_json(const char *f_out, const char *f_in,
         write_data_parallel(total_lines, total_threads);
     }
     fprintf(fp_out, "\n]");
-
     fclose(fp_out);
+    end = clock();
+    printf("  Execution Time: %.2f secs\n",
+           (double)(end - start) / CLOCKS_PER_SEC);
 }
 
 static void write_data(const uint64_t total_lines) {
