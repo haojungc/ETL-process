@@ -14,7 +14,6 @@
 static void write_data(uint64_t lines);
 static void *write_data_parallel(void *thread_id);
 static int32_t rand_int32();
-static uint64_t count_line(const char *filename);
 
 static FILE *fp;
 static uint64_t total_lines = 2e7;
@@ -87,10 +86,6 @@ int main(int argc, char *argv[]) {
     printf("-----\nElapsed Time: %.2lf secs\n-----\n",
            (double)(end - start) / CLOCKS_PER_SEC);
 
-    /* Checks if there is any data missing */
-    // uint64_t count = count_line(filename);
-    // printf("Total lines: %lu\n", count);
-
     return 0;
 }
 
@@ -123,31 +118,4 @@ static int32_t rand_int32() {
     int32_t n = rand();
     int32_t sign = (rand() & 1) << 31;
     return n | sign;
-}
-
-static uint64_t count_line(const char *filename) {
-    FILE *fp = fopen(filename, "r");
-    if (!fp) {
-        printf("Error: Cannot open %s\n", filename);
-        exit(EXIT_FAILURE);
-    }
-
-    char *scan_stat;
-    char buf[MAX_BUF_SIZE];
-    uint64_t count = 0;
-    while ((scan_stat = fgets(buf, MAX_BUF_SIZE, fp)) != NULL) {
-        uint64_t vertical_count = 0;
-        count++;
-        for (size_t i = 0; i < strlen(buf); i++) {
-            if (buf[i] == '|')
-                vertical_count++;
-        }
-        if (vertical_count != INT_PER_LINE - 1) {
-            printf("Error: Wrong format at line %lu\n", count);
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    fclose(fp);
-    return count;
 }
