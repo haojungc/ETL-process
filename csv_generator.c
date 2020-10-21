@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -20,19 +21,60 @@ static uint32_t total_threads = 1;
 
 int main(int argc, char *argv[]) {
     srand(time(NULL));
+    /* Gets the maximum number of threads */
+    struct rlimit rlim;
+    if (getrlimit(RLIMIT_NPROC, &rlim) == -1) {
+        puts("Error: unable to get RLIMIT_NPROC");
+        exit(EXIT_FAILURE);
+    }
 
     /* Command Line Arguments */
     switch (argc) {
     case 3:
-        total_lines = atoll(argv[2]);
+        /* Invalid format */
+        if (sscanf(argv[2], "--thread=%u", &total_threads) != 1) {
+            puts("Error: invalid format");
+            printf("Usage: %s [--line=<number-of-lines>] "
+                   "[--thread=<number-of-threads>] "
+                   "(valid range --thread: 1 ~ %lu)\n",
+                   argv[0], rlim.rlim_max);
+            exit(EXIT_FAILURE);
+        }
+        /* Invalid value */
+        if (!total_threads || total_threads > rlim.rlim_max) {
+            puts("Error: invalid value for --thread");
+            printf("Usage: %s [--line=<number-of-lines>] "
+                   "[--thread=<number-of-threads>] "
+                   "(valid range of --thread: 1 ~ %lu)\n",
+                   argv[0], rlim.rlim_max);
+            exit(EXIT_FAILURE);
+        }
     case 2:
-        total_threads = atoi(argv[1]);
-        break;
+        /* Invalid format */
+        if (sscanf(argv[1], "--line=%lu", &total_lines) != 1) {
+            puts("Error: invalid format");
+            printf("Usage: %s [--line=<number-of-lines>] "
+                   "[--thread=<number-of-threads>]\n",
+                   argv[0]);
+            exit(EXIT_FAILURE);
+        }
+        /* Invalid value */
+        if (!total_lines || total_lines >> 63 == 1) {
+            printf("Error: invalid value for --line, should be between 1 and "
+                   "%ld\n",
+                   INT64_MAX);
+            printf("Usage: %s [--line=<number-of-lines>] "
+                   "[--thread=<number-of-threads>]\n",
+                   argv[0]);
+            exit(EXIT_FAILURE);
+        }
     case 1:
         break;
     default:
         puts("Error: Too many arguments");
-        printf("Usage: %s [threads] [total-lines-of-data]\n", argv[0]);
+        printf("Usage: %s [--line=<number-of-lines>] "
+               "[--thread=<number-of-threads>]\n",
+               argv[0]);
         exit(EXIT_FAILURE);
     }
 
