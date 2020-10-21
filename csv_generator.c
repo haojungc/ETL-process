@@ -7,9 +7,8 @@
 #include <unistd.h>
 
 #define INT_PER_LINE 20
-/* 13: max length of an integer including '|'
- * 20: total integers per line */
-#define MAX_BUF_SIZE (13 * 20)
+#define BUF_PER_INT 13
+#define MAX_BUF_SIZE (INT_PER_LINE * BUF_PER_INT)
 
 static void write_data(uint64_t lines);
 static void *write_data_parallel(void *thread_id);
