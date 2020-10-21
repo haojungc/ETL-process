@@ -76,9 +76,7 @@ int main(int argc, char *argv[]) {
     convert_csv_to_json(output_filename, input_filename, total_threads);
     end = clock();
 
-    printf("Done.\n"
-           "Elapsed Time: %.2f secs\n",
-           (double)(end - start) / CLOCKS_PER_SEC);
+    printf("Elapsed Time: %.2f secs\n", (double)(end - start) / CLOCKS_PER_SEC);
 
     return 0;
 }
@@ -93,7 +91,7 @@ static void convert_csv_to_json(const char *f_out, const char *f_in,
     uint64_t total_lines = read_data(f_in, total_threads);
     end = clock();
 
-    printf("  Execution Time: %.2f secs\n",
+    printf("  Execution Time: %.2f secs, done.\n",
            (double)(end - start) / CLOCKS_PER_SEC);
 
     /* Writes to output file */
@@ -116,7 +114,7 @@ static void convert_csv_to_json(const char *f_out, const char *f_in,
     fclose(fp_out);
     end = clock();
 
-    printf("  Execution Time: %.2f secs\n",
+    printf("  Execution Time: %.2f secs, done.\n",
            (double)(end - start) / CLOCKS_PER_SEC);
 }
 
