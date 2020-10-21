@@ -22,6 +22,7 @@ typedef struct {
 
 static void convert_csv_to_json(const char *f_out, const char *f_in,
                                 const uint32_t total_threads);
+static uint64_t read_data(const char *f_in, const uint32_t total_threads);
 static void write_data(const uint64_t total_lines);
 static void write_data_parallel(const uint64_t total_lines,
                                 const uint32_t total_threads);
@@ -75,14 +76,52 @@ int main(int argc, char *argv[]) {
     convert_csv_to_json(output_filename, input_filename, total_threads);
     end = clock();
 
-    printf("Elapsed Time: %.2f secs\n", (double)(end - start) / CLOCKS_PER_SEC);
+    printf("Done.\n"
+           "Elapsed Time: %.2f secs\n",
+           (double)(end - start) / CLOCKS_PER_SEC);
 
     return 0;
 }
 
 static void convert_csv_to_json(const char *f_out, const char *f_in,
                                 const uint32_t total_threads) {
-    /* Opens the input file */
+    printf("Converting CSV to JSON with %u thread(s) ...\n", total_threads);
+    clock_t start, end;
+
+    /* Reads from input file */
+    start = clock();
+    uint64_t total_lines = read_data(f_in, total_threads);
+    end = clock();
+
+    printf("  Execution Time: %.2f secs\n",
+           (double)(end - start) / CLOCKS_PER_SEC);
+
+    /* Writes to output file */
+    printf("  Writing data to %s ...\n", f_out);
+
+    /* Opens the output file */
+    if (!(fp_out = fopen(f_out, "w"))) {
+        printf("Error: unable to open %s\n", f_out);
+        exit(EXIT_FAILURE);
+    }
+
+    start = clock();
+    fprintf(fp_out, "[");
+    if (total_threads == 1) {
+        write_data(total_lines);
+    } else {
+        write_data_parallel(total_lines, total_threads);
+    }
+    fprintf(fp_out, "\n]");
+    fclose(fp_out);
+    end = clock();
+
+    printf("  Execution Time: %.2f secs\n",
+           (double)(end - start) / CLOCKS_PER_SEC);
+}
+
+static uint64_t read_data(const char *f_in, const uint32_t total_threads) {
+    /* Opens input file */
     if (!(fp_in = fopen(f_in, "r"))) {
         printf("Error: unable to open %s\n", f_in);
         exit(EXIT_FAILURE);
@@ -92,21 +131,9 @@ static void convert_csv_to_json(const char *f_out, const char *f_in,
     struct stat st;
     fstat(fileno(fp_in), &st);
     off_t filesize = st.st_size;
-    printf("Size of %s: %.2f MB\n", f_in, (double)filesize / 1e6);
+    printf("  Reading from %s (size: %.2f MB) ...\n", f_in,
+           (double)filesize / 1e6);
 
-    /* Opens the output file */
-    if (!(fp_out = fopen(f_out, "w"))) {
-        printf("Error: unable to open %s\n", f_out);
-        exit(EXIT_FAILURE);
-    }
-
-    clock_t start, end;
-    printf("Converting CSV to JSON with %u thread(s) ...\n", total_threads);
-
-    /* Reads from input file */
-    printf("  Reading from %s ...\n", f_in);
-
-    start = clock();
     uint64_t total_lines = 0;
     uint32_t offset = 0;
     while (fscanf(fp_in,
@@ -122,27 +149,7 @@ static void convert_csv_to_json(const char *f_out, const char *f_in,
         offset += INT_PER_LINE;
     }
     fclose(fp_in);
-    end = clock();
-
-    printf("  Execution Time: %.2f secs\n",
-           (double)(end - start) / CLOCKS_PER_SEC);
-
-    /* Writes to output file */
-    printf("  Writing data to %s ...\n", f_out);
-
-    start = clock();
-    fprintf(fp_out, "[");
-    if (total_threads == 1) {
-        write_data(total_lines);
-    } else {
-        write_data_parallel(total_lines, total_threads);
-    }
-    fprintf(fp_out, "\n]");
-    fclose(fp_out);
-    end = clock();
-
-    printf("  Execution Time: %.2f secs\n",
-           (double)(end - start) / CLOCKS_PER_SEC);
+    return total_lines;
 }
 
 static void write_data(const uint64_t total_lines) {
