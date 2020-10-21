@@ -44,8 +44,6 @@ int main(int argc, char *argv[]) {
     const char output_filename[] = "output.json";
     static uint32_t total_threads = 1;
 
-    start = clock();
-
     /* Too many arguments */
     if (argc > 2) {
         puts("Error: too many arguments");
@@ -73,9 +71,8 @@ int main(int argc, char *argv[]) {
             exit(EXIT_FAILURE);
         }
     }
-
+    start = clock();
     convert_csv_to_json(output_filename, input_filename, total_threads);
-
     end = clock();
 
     printf("Elapsed Time: %.2f secs\n", (double)(end - start) / CLOCKS_PER_SEC);
@@ -126,11 +123,13 @@ static void convert_csv_to_json(const char *f_out, const char *f_in,
     }
     fclose(fp_in);
     end = clock();
+
     printf("  Execution Time: %.2f secs\n",
            (double)(end - start) / CLOCKS_PER_SEC);
 
     /* Writes to output file */
     printf("  Writing data to %s ...\n", f_out);
+
     start = clock();
     fprintf(fp_out, "[");
     if (total_threads == 1) {
@@ -141,6 +140,7 @@ static void convert_csv_to_json(const char *f_out, const char *f_in,
     fprintf(fp_out, "\n]");
     fclose(fp_out);
     end = clock();
+
     printf("  Execution Time: %.2f secs\n",
            (double)(end - start) / CLOCKS_PER_SEC);
 }
