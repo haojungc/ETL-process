@@ -29,8 +29,8 @@ static void write_data_parallel(const uint64_t total_lines,
 static void *convert_line(void *task);
 
 static FILE *fp_in, *fp_out;
-int32_t n[MAX_LEN];
-char buf[BUF_SIZE];
+static int32_t n[MAX_LEN];
+static char buf[BUF_SIZE];
 
 int main(int argc, char *argv[]) {
     /* Gets the maximum number of threads */
