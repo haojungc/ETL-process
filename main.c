@@ -1,4 +1,5 @@
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,10 +27,13 @@ static uint64_t read_data(const char *f_in, const uint32_t total_threads);
 static void write_data(const uint64_t total_lines);
 static void write_data_parallel(const uint64_t total_lines,
                                 const uint32_t total_threads);
+static uint64_t convert_binary_to_int32(const size_t size,
+                                        const uint32_t total_threads);
 static void *convert_line(void *task);
 
 static FILE *fp_in, *fp_out;
 static int32_t n[MAX_LEN];
+static char *buf_in;
 static char buf[BUF_SIZE];
 
 int main(int argc, char *argv[]) {
@@ -91,11 +95,11 @@ static void convert_csv_to_json(const char *f_out, const char *f_in,
     uint64_t total_lines = read_data(f_in, total_threads);
     end = clock();
 
-    printf("  Execution Time: %.2f secs, done.\n",
+    printf("  Execution Time: %.2f secs, done.\n\n",
            (double)(end - start) / CLOCKS_PER_SEC);
 
     /* Writes to output file */
-    printf("  Writing data to %s ...\n", f_out);
+    printf("  Writing %lu lines of data to %s ...\n", total_lines, f_out);
 
     /* Opens the output file */
     if (!(fp_out = fopen(f_out, "w"))) {
@@ -120,7 +124,7 @@ static void convert_csv_to_json(const char *f_out, const char *f_in,
 
 static uint64_t read_data(const char *f_in, const uint32_t total_threads) {
     /* Opens input file */
-    if (!(fp_in = fopen(f_in, "r"))) {
+    if (!(fp_in = fopen(f_in, "rb"))) {
         printf("Error: unable to open %s\n", f_in);
         exit(EXIT_FAILURE);
     }
@@ -132,21 +136,26 @@ static uint64_t read_data(const char *f_in, const uint32_t total_threads) {
     printf("  Reading from %s (size: %.2f MB) ...\n", f_in,
            (double)filesize / 1e6);
 
-    uint64_t total_lines = 0;
-    uint32_t offset = 0;
-    while (fscanf(fp_in,
-                  "%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d",
-                  &n[offset], &n[offset + 1], &n[offset + 2], &n[offset + 3],
-                  &n[offset + 4], &n[offset + 5], &n[offset + 6],
-                  &n[offset + 7], &n[offset + 8], &n[offset + 9],
-                  &n[offset + 10], &n[offset + 11], &n[offset + 12],
-                  &n[offset + 13], &n[offset + 14], &n[offset + 15],
-                  &n[offset + 16], &n[offset + 17], &n[offset + 18],
-                  &n[offset + 19]) == INT_PER_LINE) {
-        total_lines++;
-        offset += INT_PER_LINE;
+    /* Allocates memory for buf_in */
+    buf_in = (char *)malloc((filesize + 1) * sizeof(char));
+    if (!buf_in) {
+        perror("malloc failed");
+        exit(EXIT_FAILURE);
+    }
+
+    size_t result = fread(buf_in, sizeof(char), filesize, fp_in);
+    if (result != filesize) {
+        printf("error: fread failed\n");
+        exit(EXIT_FAILURE);
     }
     fclose(fp_in);
+    /* Assures buf_in ends with a newline character */
+    buf_in[filesize] = '\n';
+    size_t addend = (buf_in[filesize - 1] == '\n') ? 0 : 1;
+    uint64_t total_lines =
+        convert_binary_to_int32(filesize + addend, total_threads);
+    free(buf_in);
+
     return total_lines;
 }
 
@@ -225,6 +234,34 @@ static void write_data_parallel(const uint64_t _total_lines,
 
     free(t);
     free(task);
+}
+
+static uint64_t convert_binary_to_int32(const size_t size,
+                                        const uint32_t total_threads) {
+    uint64_t count = 0;
+    uint64_t line_count = 0;
+    uint64_t start = 0;
+    int64_t num;
+    bool is_negative;
+    for (uint64_t i = 0; i < size; i++) {
+        switch (buf_in[i]) {
+        case '\n':
+            line_count++;
+        case '|':
+            num = 0;
+            is_negative = (buf_in[start] == '-') ? true : false;
+            for (uint64_t j = start + (is_negative ? 1 : 0); j < i; j++) {
+                num = (num << 3) + (num << 1) + (buf_in[j] - '0');
+            }
+            n[count++] = is_negative ? ~num + 1 : num;
+            start = i + 1;
+        }
+    }
+    printf("  Total Lines: %lu\n"
+           "  Total Integers: %lu\n",
+           line_count, count);
+
+    return line_count;
 }
 
 static void *convert_line(void *_task) {
