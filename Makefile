@@ -4,9 +4,9 @@ EXE := convert
 
 all:
 	$(CC) main.c $(CFLAGS) -o $(EXE)
-	$(CC) csv_generator.c $(CFLAGS) -o generator
+	$(CC) csv_generator.c $(CFLAGS) -o generate
 
 .PHONY: clean
 
 clean:
-	rm -f $(EXE) generator
+	rm -f $(EXE) generate
