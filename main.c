@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
     clock_t start, end;
     const char input_filename[] = "input.csv";
     const char output_filename[] = "output.json";
-    static uint32_t total_threads = 1;
+    uint32_t total_threads = 1;
 
     /* Too many arguments */
     if (argc > 2) {
