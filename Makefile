@@ -1,10 +1,10 @@
 CC := gcc
-CFLAGS := -Wall -pthread -O3 -std=c99
+CFLAGS := -Wall -pthread -fopenmp -O3 -std=c99
 EXE := convert
 
 all:
-	$(CC) $(CFLAGS) -o $(EXE) main.c
-	$(CC) $(CFLAGS) -o generator csv_generator.c
+	$(CC) main.c $(CFLAGS) -o $(EXE)
+	$(CC) csv_generator.c $(CFLAGS) -o generator
 
 .PHONY: clean
 
