@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -10,10 +11,36 @@
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 #define MAX_LEN 150000000
-#define CHUNK_SIZE 1000000
+#define CHUNK_SIZE 2000000
 #define INT_PER_LINE 20
 #define BUF_PER_INT 25
-#define BUF_SIZE (CHUNK_SIZE * INT_PER_LINE * BUF_PER_INT)
+#define BUF_PER_LINE (INT_PER_LINE * BUF_PER_INT)
+#define MIN_BUF_PER_LINE 40 /* 20 zeros, 19 columns and 1 newline character */
+#define BUF_SIZE (CHUNK_SIZE * BUF_PER_LINE)
+#define JSON_FORMAT                                                            \
+    "%s\n"                                                                     \
+    "\t{\n"                                                                    \
+    "\t\t\"col_1\":%s,\n"                                                      \
+    "\t\t\"col_2\":%s,\n"                                                      \
+    "\t\t\"col_3\":%s,\n"                                                      \
+    "\t\t\"col_4\":%s,\n"                                                      \
+    "\t\t\"col_5\":%s,\n"                                                      \
+    "\t\t\"col_6\":%s,\n"                                                      \
+    "\t\t\"col_7\":%s,\n"                                                      \
+    "\t\t\"col_8\":%s,\n"                                                      \
+    "\t\t\"col_9\":%s,\n"                                                      \
+    "\t\t\"col_10\":%s,\n"                                                     \
+    "\t\t\"col_11\":%s,\n"                                                     \
+    "\t\t\"col_12\":%s,\n"                                                     \
+    "\t\t\"col_13\":%s,\n"                                                     \
+    "\t\t\"col_14\":%s,\n"                                                     \
+    "\t\t\"col_15\":%s,\n"                                                     \
+    "\t\t\"col_16\":%s,\n"                                                     \
+    "\t\t\"col_17\":%s,\n"                                                     \
+    "\t\t\"col_18\":%s,\n"                                                     \
+    "\t\t\"col_19\":%s,\n"                                                     \
+    "\t\t\"col_20\":%s\n"                                                      \
+    "\t}"
 
 typedef struct {
     uint32_t chunk_index;
@@ -24,17 +51,16 @@ typedef struct {
 static void convert_csv_to_json(const char *f_out, const char *f_in,
                                 const uint32_t total_threads);
 static uint64_t read_data(const char *f_in, const uint32_t total_threads);
+static uint64_t set_pos(const size_t size, const uint32_t total_threads);
 static void write_data(const uint64_t total_lines);
 static void write_data_parallel(const uint64_t total_lines,
                                 const uint32_t total_threads);
-static uint64_t convert_binary_to_int32(const size_t size,
-                                        const uint32_t total_threads);
 static void *convert_line(void *task);
 
 static FILE *fp_in, *fp_out;
-static int32_t n[MAX_LEN];
+static uint32_t *pos; /* starting positions of each integer in buf_in */
 static char *buf_in;
-static char buf[BUF_SIZE];
+static char buf_out[BUF_SIZE];
 
 int main(int argc, char *argv[]) {
     /* Gets the maximum number of threads */
@@ -102,20 +128,23 @@ static void convert_csv_to_json(const char *f_out, const char *f_in,
     printf("  Writing %lu lines of data to %s ...\n", total_lines, f_out);
 
     /* Opens the output file */
-    if (!(fp_out = fopen(f_out, "w"))) {
+    if (!(fp_out = fopen(f_out, "wb"))) {
         printf("Error: unable to open %s\n", f_out);
         exit(EXIT_FAILURE);
     }
 
+    /* Writes data to output file */
     start = clock();
-    fprintf(fp_out, "[");
+    fwrite("[", sizeof(char), 1, fp_out);
     if (total_threads == 1) {
         write_data(total_lines);
     } else {
         write_data_parallel(total_lines, total_threads);
     }
-    fprintf(fp_out, "\n]");
+    fwrite("\n]", sizeof(char), 2, fp_out);
     fclose(fp_out);
+    free(buf_in);
+    free(pos);
     end = clock();
 
     printf("  Execution Time: %.2f secs, done.\n",
@@ -143,54 +172,69 @@ static uint64_t read_data(const char *f_in, const uint32_t total_threads) {
         exit(EXIT_FAILURE);
     }
 
+    /* Reads data from input file */
     size_t result = fread(buf_in, sizeof(char), filesize, fp_in);
     if (result != filesize) {
         printf("error: fread failed\n");
         exit(EXIT_FAILURE);
     }
     fclose(fp_in);
-    /* Assures buf_in ends with a newline character */
-    buf_in[filesize] = '\n';
-    size_t addend = (buf_in[filesize - 1] == '\n') ? 0 : 1;
-    uint64_t total_lines =
-        convert_binary_to_int32(filesize + addend, total_threads);
-    free(buf_in);
+
+    pos = (uint32_t *)malloc((filesize / MIN_BUF_PER_LINE * INT_PER_LINE) *
+                             sizeof(uint32_t));
+    if (!pos) {
+        perror("malloc failed");
+        exit(EXIT_FAILURE);
+    }
+
+    uint64_t total_lines = set_pos(filesize, total_threads);
 
     return total_lines;
 }
 
+static uint64_t set_pos(const size_t size, const uint32_t total_threads) {
+    uint64_t count = 0;
+    uint64_t line_count = 1;
+
+    /* Stores the starting positions of each integer
+     * and ends each of them with '\0' */
+    pos[count++] = 0;
+    for (uint64_t i = 2; i < size; i++) {
+        switch (buf_in[i - 1]) {
+        case '\n':
+            line_count++;
+        case '|':
+            pos[count++] = i;
+            buf_in[i - 1] = '\0';
+        }
+    }
+    buf_in[size - 1] = '\0';
+
+    printf("  Total Lines: %lu\n"
+           "  Total Integers: %lu\n",
+           line_count, count);
+    return line_count;
+}
+
 static void write_data(const uint64_t total_lines) {
-    static const char format[] = "%s\n"
-                                 "\t{\n"
-                                 "\t\t\"col_1\":%d,\n"
-                                 "\t\t\"col_2\":%d,\n"
-                                 "\t\t\"col_3\":%d,\n"
-                                 "\t\t\"col_4\":%d,\n"
-                                 "\t\t\"col_5\":%d,\n"
-                                 "\t\t\"col_6\":%d,\n"
-                                 "\t\t\"col_7\":%d,\n"
-                                 "\t\t\"col_8\":%d,\n"
-                                 "\t\t\"col_9\":%d,\n"
-                                 "\t\t\"col_10\":%d,\n"
-                                 "\t\t\"col_11\":%d,\n"
-                                 "\t\t\"col_12\":%d,\n"
-                                 "\t\t\"col_13\":%d,\n"
-                                 "\t\t\"col_14\":%d,\n"
-                                 "\t\t\"col_15\":%d,\n"
-                                 "\t\t\"col_16\":%d,\n"
-                                 "\t\t\"col_17\":%d,\n"
-                                 "\t\t\"col_18\":%d,\n"
-                                 "\t\t\"col_19\":%d,\n"
-                                 "\t\t\"col_20\":%d\n"
-                                 "\t}";
+    static const char format[] = JSON_FORMAT;
+    char str[BUF_PER_LINE];
     uint32_t offset = 0;
+
+    /* Writes data to output file in JSON format */
     for (uint32_t i = 0; i < total_lines; i++) {
-        fprintf(fp_out, format, i == 0 ? "" : ",", n[offset], n[offset + 1],
-                n[offset + 2], n[offset + 3], n[offset + 4], n[offset + 5],
-                n[offset + 6], n[offset + 7], n[offset + 8], n[offset + 9],
-                n[offset + 10], n[offset + 11], n[offset + 12], n[offset + 13],
-                n[offset + 14], n[offset + 15], n[offset + 16], n[offset + 17],
-                n[offset + 18], n[offset + 19]);
+        snprintf(str, BUF_PER_LINE, format, i == 0 ? "" : ",",
+                 &buf_in[pos[offset]], &buf_in[pos[offset + 1]],
+                 &buf_in[pos[offset + 2]], &buf_in[pos[offset + 3]],
+                 &buf_in[pos[offset + 4]], &buf_in[pos[offset + 5]],
+                 &buf_in[pos[offset + 6]], &buf_in[pos[offset + 7]],
+                 &buf_in[pos[offset + 8]], &buf_in[pos[offset + 9]],
+                 &buf_in[pos[offset + 10]], &buf_in[pos[offset + 11]],
+                 &buf_in[pos[offset + 12]], &buf_in[pos[offset + 13]],
+                 &buf_in[pos[offset + 14]], &buf_in[pos[offset + 15]],
+                 &buf_in[pos[offset + 16]], &buf_in[pos[offset + 17]],
+                 &buf_in[pos[offset + 18]], &buf_in[pos[offset + 19]]);
+        fwrite(str, sizeof(char), strlen(str), fp_out);
         offset += INT_PER_LINE;
     }
 }
@@ -225,84 +269,41 @@ static void write_data_parallel(const uint64_t _total_lines,
 
         /* Prints buf to output file */
         for (uint32_t i = 0; i < total_threads; i++) {
-            fputs(&buf[task[i].start_index * INT_PER_LINE * BUF_PER_INT],
-                  fp_out);
+            uint32_t start_index =
+                task[i].start_index * INT_PER_LINE * BUF_PER_INT;
+            fwrite(&buf_out[start_index], sizeof(char),
+                   strlen(&buf_out[start_index]), fp_out);
         }
         total_lines -= current_chunk_size;
         chunk_index++;
     }
-
     free(t);
     free(task);
 }
 
-static uint64_t convert_binary_to_int32(const size_t size,
-                                        const uint32_t total_threads) {
-    uint64_t count = 0;
-    uint64_t line_count = 0;
-    uint64_t start = 0;
-    int64_t num;
-    bool is_negative;
-    for (uint64_t i = 0; i < size; i++) {
-        switch (buf_in[i]) {
-        case '\n':
-            line_count++;
-        case '|':
-            num = 0;
-            is_negative = (buf_in[start] == '-') ? true : false;
-            for (uint64_t j = start + (is_negative ? 1 : 0); j < i; j++) {
-                num = (num << 3) + (num << 1) + (buf_in[j] - '0');
-            }
-            n[count++] = is_negative ? ~num + 1 : num;
-            start = i + 1;
-        }
-    }
-    printf("  Total Lines: %lu\n"
-           "  Total Integers: %lu\n",
-           line_count, count);
-
-    return line_count;
-}
-
 static void *convert_line(void *_task) {
+    static const char format[] = JSON_FORMAT;
     task_t *task = (task_t *)_task;
-
-    static const char format[] = "%s\n"
-                                 "\t{\n"
-                                 "\t\t\"col_1\":%d,\n"
-                                 "\t\t\"col_2\":%d,\n"
-                                 "\t\t\"col_3\":%d,\n"
-                                 "\t\t\"col_4\":%d,\n"
-                                 "\t\t\"col_5\":%d,\n"
-                                 "\t\t\"col_6\":%d,\n"
-                                 "\t\t\"col_7\":%d,\n"
-                                 "\t\t\"col_8\":%d,\n"
-                                 "\t\t\"col_9\":%d,\n"
-                                 "\t\t\"col_10\":%d,\n"
-                                 "\t\t\"col_11\":%d,\n"
-                                 "\t\t\"col_12\":%d,\n"
-                                 "\t\t\"col_13\":%d,\n"
-                                 "\t\t\"col_14\":%d,\n"
-                                 "\t\t\"col_15\":%d,\n"
-                                 "\t\t\"col_16\":%d,\n"
-                                 "\t\t\"col_17\":%d,\n"
-                                 "\t\t\"col_18\":%d,\n"
-                                 "\t\t\"col_19\":%d,\n"
-                                 "\t\t\"col_20\":%d\n"
-                                 "\t}";
     uint32_t buf_index = task->start_index * INT_PER_LINE * BUF_PER_INT;
     uint32_t offset = task->chunk_index * CHUNK_SIZE * INT_PER_LINE +
                       task->start_index * INT_PER_LINE;
     int32_t len;
+
+    /* Stores data in the buffer in JSON format */
     for (uint32_t i = 0; i < task->total_lines; i++) {
-        len = snprintf(
-            &buf[buf_index], INT_PER_LINE * BUF_PER_INT * sizeof(char), format,
-            (task->chunk_index == 0 && buf_index == 0) ? "" : ",", n[offset],
-            n[offset + 1], n[offset + 2], n[offset + 3], n[offset + 4],
-            n[offset + 5], n[offset + 6], n[offset + 7], n[offset + 8],
-            n[offset + 9], n[offset + 10], n[offset + 11], n[offset + 12],
-            n[offset + 13], n[offset + 14], n[offset + 15], n[offset + 16],
-            n[offset + 17], n[offset + 18], n[offset + 19]);
+        len = snprintf(&buf_out[buf_index],
+                       INT_PER_LINE * BUF_PER_INT * sizeof(char), format,
+                       (task->chunk_index == 0 && buf_index == 0) ? "" : ",",
+                       &buf_in[pos[offset]], &buf_in[pos[offset + 1]],
+                       &buf_in[pos[offset + 2]], &buf_in[pos[offset + 3]],
+                       &buf_in[pos[offset + 4]], &buf_in[pos[offset + 5]],
+                       &buf_in[pos[offset + 6]], &buf_in[pos[offset + 7]],
+                       &buf_in[pos[offset + 8]], &buf_in[pos[offset + 9]],
+                       &buf_in[pos[offset + 10]], &buf_in[pos[offset + 11]],
+                       &buf_in[pos[offset + 12]], &buf_in[pos[offset + 13]],
+                       &buf_in[pos[offset + 14]], &buf_in[pos[offset + 15]],
+                       &buf_in[pos[offset + 16]], &buf_in[pos[offset + 17]],
+                       &buf_in[pos[offset + 18]], &buf_in[pos[offset + 19]]);
         buf_index += len;
         offset += INT_PER_LINE;
     }
