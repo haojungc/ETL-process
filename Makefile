@@ -1,5 +1,5 @@
 CC := gcc
-CFLAGS := -Wall -pthread -fopenmp -O3 -std=c99
+CFLAGS := -std=c99 -Wall -pthread -O0
 EXE := convert
 
 all:
