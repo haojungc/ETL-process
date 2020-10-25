@@ -9,8 +9,7 @@
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
-#define MAX_LEN 150000000
-#define CHUNK_SIZE 2000000
+#define CHUNK_SIZE 2500000
 #define INT_PER_LINE 20
 #define BUF_PER_INT 25
 #define BUF_PER_LINE (INT_PER_LINE * BUF_PER_INT)
