@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -46,6 +45,7 @@ typedef struct {
     uint32_t chunk_index;
     uint32_t start_index;
     uint32_t total_lines;
+    size_t length;
 } task_t;
 
 static void convert_csv_to_json(const char *f_out, const char *f_in,
@@ -221,21 +221,22 @@ static void write_data(const uint64_t total_lines) {
     static const char format[] = JSON_FORMAT;
     char str[BUF_PER_LINE];
     uint32_t offset = 0;
+    size_t len;
 
     /* Writes data to output file in JSON format */
     for (uint32_t i = 0; i < total_lines; i++) {
-        snprintf(str, BUF_PER_LINE, format, i == 0 ? "" : ",",
-                 &buf_in[pos[offset]], &buf_in[pos[offset + 1]],
-                 &buf_in[pos[offset + 2]], &buf_in[pos[offset + 3]],
-                 &buf_in[pos[offset + 4]], &buf_in[pos[offset + 5]],
-                 &buf_in[pos[offset + 6]], &buf_in[pos[offset + 7]],
-                 &buf_in[pos[offset + 8]], &buf_in[pos[offset + 9]],
-                 &buf_in[pos[offset + 10]], &buf_in[pos[offset + 11]],
-                 &buf_in[pos[offset + 12]], &buf_in[pos[offset + 13]],
-                 &buf_in[pos[offset + 14]], &buf_in[pos[offset + 15]],
-                 &buf_in[pos[offset + 16]], &buf_in[pos[offset + 17]],
-                 &buf_in[pos[offset + 18]], &buf_in[pos[offset + 19]]);
-        fwrite(str, sizeof(char), strlen(str), fp_out);
+        len = snprintf(str, BUF_PER_LINE, format, i == 0 ? "" : ",",
+                       &buf_in[pos[offset]], &buf_in[pos[offset + 1]],
+                       &buf_in[pos[offset + 2]], &buf_in[pos[offset + 3]],
+                       &buf_in[pos[offset + 4]], &buf_in[pos[offset + 5]],
+                       &buf_in[pos[offset + 6]], &buf_in[pos[offset + 7]],
+                       &buf_in[pos[offset + 8]], &buf_in[pos[offset + 9]],
+                       &buf_in[pos[offset + 10]], &buf_in[pos[offset + 11]],
+                       &buf_in[pos[offset + 12]], &buf_in[pos[offset + 13]],
+                       &buf_in[pos[offset + 14]], &buf_in[pos[offset + 15]],
+                       &buf_in[pos[offset + 16]], &buf_in[pos[offset + 17]],
+                       &buf_in[pos[offset + 18]], &buf_in[pos[offset + 19]]);
+        fwrite(str, sizeof(char), len, fp_out);
         offset += INT_PER_LINE;
     }
 }
@@ -272,8 +273,7 @@ static void write_data_parallel(const uint64_t _total_lines,
         for (uint32_t i = 0; i < total_threads; i++) {
             uint32_t start_index =
                 task[i].start_index * INT_PER_LINE * BUF_PER_INT;
-            fwrite(&buf_out[start_index], sizeof(char),
-                   strlen(&buf_out[start_index]), fp_out);
+            fwrite(&buf_out[start_index], sizeof(char), task[i].length, fp_out);
         }
         total_lines -= current_chunk_size;
         chunk_index++;
@@ -285,29 +285,32 @@ static void write_data_parallel(const uint64_t _total_lines,
 static void *convert_line(void *_task) {
     static const char format[] = JSON_FORMAT;
     task_t *task = (task_t *)_task;
-    uint32_t buf_index = task->start_index * INT_PER_LINE * BUF_PER_INT;
+    uint32_t start_index = task->start_index * INT_PER_LINE * BUF_PER_INT;
+
     uint32_t offset = task->chunk_index * CHUNK_SIZE * INT_PER_LINE +
                       task->start_index * INT_PER_LINE;
     int32_t len;
 
     /* Stores data in the buffer in JSON format */
+    uint32_t current_index = start_index;
     for (uint32_t i = 0; i < task->total_lines; i++) {
-        len = snprintf(&buf_out[buf_index],
-                       INT_PER_LINE * BUF_PER_INT * sizeof(char), format,
-                       (task->chunk_index == 0 && buf_index == 0) ? "" : ",",
-                       &buf_in[pos[offset]], &buf_in[pos[offset + 1]],
-                       &buf_in[pos[offset + 2]], &buf_in[pos[offset + 3]],
-                       &buf_in[pos[offset + 4]], &buf_in[pos[offset + 5]],
-                       &buf_in[pos[offset + 6]], &buf_in[pos[offset + 7]],
-                       &buf_in[pos[offset + 8]], &buf_in[pos[offset + 9]],
-                       &buf_in[pos[offset + 10]], &buf_in[pos[offset + 11]],
-                       &buf_in[pos[offset + 12]], &buf_in[pos[offset + 13]],
-                       &buf_in[pos[offset + 14]], &buf_in[pos[offset + 15]],
-                       &buf_in[pos[offset + 16]], &buf_in[pos[offset + 17]],
-                       &buf_in[pos[offset + 18]], &buf_in[pos[offset + 19]]);
-        buf_index += len;
+        len =
+            snprintf(&buf_out[current_index], BUF_PER_LINE, format,
+                     (task->chunk_index == 0 && current_index == 0) ? "" : ",",
+                     &buf_in[pos[offset]], &buf_in[pos[offset + 1]],
+                     &buf_in[pos[offset + 2]], &buf_in[pos[offset + 3]],
+                     &buf_in[pos[offset + 4]], &buf_in[pos[offset + 5]],
+                     &buf_in[pos[offset + 6]], &buf_in[pos[offset + 7]],
+                     &buf_in[pos[offset + 8]], &buf_in[pos[offset + 9]],
+                     &buf_in[pos[offset + 10]], &buf_in[pos[offset + 11]],
+                     &buf_in[pos[offset + 12]], &buf_in[pos[offset + 13]],
+                     &buf_in[pos[offset + 14]], &buf_in[pos[offset + 15]],
+                     &buf_in[pos[offset + 16]], &buf_in[pos[offset + 17]],
+                     &buf_in[pos[offset + 18]], &buf_in[pos[offset + 19]]);
+        current_index += len;
         offset += INT_PER_LINE;
     }
+    task->length = current_index - start_index;
 
     pthread_exit(NULL);
 }
