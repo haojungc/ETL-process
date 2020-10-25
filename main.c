@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
         puts("Error: too many arguments");
         printf(
             "Usage: %s [--thread=<number-of-threads>] (valid range: 1 ~ %lu)\n",
-            argv[0], rlim.rlim_max);
+            argv[0], rlim.rlim_cur);
         exit(EXIT_FAILURE);
     }
     /* Sets the number of threads */
@@ -89,15 +89,15 @@ int main(int argc, char *argv[]) {
             puts("Error: invalid format");
             printf("Usage: %s [--thread=<number-of-threads>] "
                    "(valid range: 1 ~ %lu)\n",
-                   argv[0], rlim.rlim_max);
+                   argv[0], rlim.rlim_cur);
             exit(EXIT_FAILURE);
         }
         /* Invalid value */
-        if (!total_threads || total_threads > rlim.rlim_max) {
+        if (!total_threads || total_threads > rlim.rlim_cur) {
             puts("Error: invalid value for --thread");
             printf("Usage: %s [--thread=<number-of-threads>] "
                    "(valid range: 1 ~ %lu)\n",
-                   argv[0], rlim.rlim_max);
+                   argv[0], rlim.rlim_cur);
             exit(EXIT_FAILURE);
         }
     }
